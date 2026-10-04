@@ -11,6 +11,23 @@ resource "aws_sqs_queue" "dlq" {
   }
 }
 
+# Alert when the DLQ accumulates messages (chronic delivery failures need
+# investigating). Hook up an SNS topic in alarm_actions when ops wants paging.
+resource "cloudwatch_metric_alarm" "dlq_accumulation" {
+  alarm_name          = "notifications-dlq-accumulation.dev"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessages"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 1
+
+  dimensions = {
+    QueueName = aws_sqs_queue.dlq.name
+  }
+}
+
 resource "aws_sqs_queue" "inbound" {
   name                       = "notifications.inbound.dev"
   visibility_timeout         = 60
