@@ -5,9 +5,14 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "tsx src/main.ts",
+    "simulator": "tsx src/simulator.ts"
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
     "tsx": "^4.23.15",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0"

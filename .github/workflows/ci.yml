@@ -1,0 +1,65 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC role assumption
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+        with:
+          mask-password: "true"
+
+      - name: Build and push image
+        run: |
+          IMAGE_REPOSITORY=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}
+          IMAGE_TAG=$GITHUB_SHA
+          docker build -t $IMAGE_REPOSITORY:$IMAGE_TAG .
+          docker push $IMAGE_REPOSITORY:$IMAGE_TAG
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          service: ${{ vars.ECS_SERVICE }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          task-definition-override: |
+            {
+              "containerDefinitions": [
+                {
+                  "name": "notification-service",
+                  "image": "${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$GITHUB_SHA"
+                }
+              ]
+            }
