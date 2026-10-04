@@ -3,3 +3,7 @@ dist/
 .terraform/
 *.tfstate
 *.tfstate.backup
+
+# local demo runtime artifacts
+.scratch/*.log
+.scratch/*.pid
