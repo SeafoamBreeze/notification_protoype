@@ -87,6 +87,11 @@ const PAGE = `<!doctype html>
     box-shadow: 0 12px 40px rgba(0,0,0,.18); overflow: hidden;
     display: flex; flex-direction: column; min-height: 720px;
   }
+  /* On small screens the app IS the screen: drop the phone-frame chrome */
+  @media (max-width: 480px) {
+    body { padding: 0; background: #fff; }
+    .phone { max-width: none; border-radius: 0; box-shadow: none; min-height: 100dvh; }
+  }
   .appbar {
     background: var(--purple); color: #fff; padding: 1rem 1.1rem;
     display: flex; align-items: center; gap: .6rem;
