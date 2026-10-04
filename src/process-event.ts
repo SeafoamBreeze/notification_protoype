@@ -26,6 +26,14 @@ export interface ProcessedIds {
 }
 
 /**
+ * Lookup of a tenant's riders (for tenant-wide fan-out). Backed by a static
+ * registry in the prototype; by the platform's rider data in production.
+ */
+export interface RiderDirectory {
+  listRiders(tenantId: string): Promise<string[]>;
+}
+
+/**
  * Turn a Domain Event into Breeze delivery(ies).
  * Events whose transaction_id was already processed are skipped (at-least-once
  * delivery made effectively exactly-once).
@@ -34,6 +42,7 @@ export async function processEvent(
   event: DomainEvent,
   breeze: BreezeClient,
   seen: ProcessedIds,
+  riders: RiderDirectory,
 ): Promise<void> {
   if (seen.has(event.transaction_id)) return;
   switch (event.type) {
@@ -55,6 +64,19 @@ export async function processEvent(
         body: `Your vehicle for booking ${event.data.booking_ref} is ${event.data.eta_minutes} minutes away.`,
       });
       break;
+    case "service_disruption": {
+      // Tenant-wide: fan out to every rider of the affected AV Service.
+      const riderIds = await riders.listRiders(event.tenant_id);
+      for (const riderId of riderIds) {
+        await breeze.deliver({
+          riderId,
+          tenantId: event.tenant_id,
+          title: "Service disruption",
+          body: String(event.data.reason),
+        });
+      }
+      break;
+    }
   }
   seen.add(event.transaction_id);
 }
